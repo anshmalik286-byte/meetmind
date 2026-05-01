@@ -1,6 +1,6 @@
-flask==3.0.3
-flask-cors==4.0.1
-python-dotenv==1.0.1
-ibm-watson==8.1.0
-ibm-cloud-sdk-core==3.20.3
-gunicorn==22.0.0
+flask==2.3.3
+flask-cors==4.0.0
+ibm-watson==7.0.1
+ibm-cloud-sdk-core==3.18.0
+python-dotenv==1.0.0
+setuptools==67.6.0
