@@ -1,0 +1,22 @@
+# Drop this in your repo root.
+# Render reads it and auto-configures your Flask service.
+
+services:
+  - type: web
+    name: meetmind-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: STT_API_KEY
+        sync: false
+      - key: STT_URL
+        sync: false
+      - key: NLU_API_KEY
+        sync: false
+      - key: NLU_URL
+        sync: false
+      - key: SENDER_EMAIL
+        sync: false
+      - key: SENDER_PASSWORD
+        sync: false

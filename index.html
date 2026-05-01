@@ -1,0 +1,596 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MeetMind — Automated Meeting Summarizer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #111118;
+      --card:      #16161f;
+      --border:    #2a2a3a;
+      --accent:    #7c6af7;
+      --accent2:   #f76a8c;
+      --green:     #4ade80;
+      --yellow:    #fbbf24;
+      --text:      #e8e8f0;
+      --muted:     #6b6b80;
+      --mono:      'DM Mono', monospace;
+      --sans:      'Syne', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(124,106,247,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,106,247,.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    .glow { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
+    .glow-1 { width: 500px; height: 500px; background: rgba(124,106,247,.12); top: -150px; left: -150px; }
+    .glow-2 { width: 400px; height: 400px; background: rgba(247,106,140,.08); bottom: -100px; right: -100px; }
+
+    .wrapper { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 0 24px 80px; }
+
+    header {
+      padding: 48px 0 40px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 48px;
+    }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: grid; place-items: center; font-size: 20px;
+    }
+    .logo-text { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo-text span { color: var(--accent); }
+    .badge {
+      font-family: var(--mono); font-size: 11px; padding: 4px 10px;
+      border: 1px solid var(--border); border-radius: 20px; color: var(--muted);
+    }
+
+    .section-label {
+      font-family: var(--mono); font-size: 11px; color: var(--accent);
+      letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px;
+    }
+
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px; transition: border-color .2s;
+    }
+    .card:hover { border-color: rgba(124,106,247,.35); }
+
+    .field { display: flex; flex-direction: column; gap: 8px; }
+    label { font-size: 12px; color: var(--muted); font-family: var(--mono); letter-spacing: .5px; }
+
+    input, select {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px;
+      color: var(--text); font-family: var(--mono); font-size: 13px;
+      outline: none; transition: border-color .2s, box-shadow .2s; width: 100%;
+    }
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124,106,247,.15);
+    }
+    input::placeholder { color: var(--muted); }
+
+    .dropzone {
+      border: 2px dashed var(--border); border-radius: 12px;
+      padding: 48px 24px; text-align: center;
+      cursor: pointer; transition: all .25s; position: relative; margin-bottom: 20px;
+    }
+    .dropzone:hover, .dropzone.drag-over {
+      border-color: var(--accent); background: rgba(124,106,247,.05);
+    }
+    .dropzone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+      width: 100%; height: 100%; border: none; padding: 0;
+    }
+    .drop-icon { font-size: 40px; margin-bottom: 12px; display: block; }
+    .drop-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .drop-sub { font-size: 13px; color: var(--muted); font-family: var(--mono); }
+
+    .file-chosen {
+      display: none; align-items: center; gap: 12px;
+      background: rgba(124,106,247,.1); border: 1px solid rgba(124,106,247,.3);
+      border-radius: 8px; padding: 12px 16px; margin-top: 16px;
+    }
+    .file-chosen.visible { display: flex; }
+    .file-chosen .fname { font-family: var(--mono); font-size: 13px; color: var(--accent); flex: 1; }
+    .file-chosen .fsize { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+    .btn-primary {
+      width: 100%; padding: 14px; border-radius: 10px; border: none; cursor: pointer;
+      font-family: var(--sans); font-size: 15px; font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), #9b59d6);
+      color: #fff; letter-spacing: .3px;
+      transition: opacity .2s, transform .1s, box-shadow .2s;
+      box-shadow: 0 4px 20px rgba(124,106,247,.35);
+    }
+    .btn-primary:hover:not(:disabled) { opacity: .9; box-shadow: 0 6px 28px rgba(124,106,247,.5); }
+    .btn-primary:active:not(:disabled) { transform: scale(.99); }
+    .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+
+    .btn-sm {
+      padding: 7px 14px; border-radius: 7px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted); font-family: var(--mono);
+      font-size: 12px; cursor: pointer; transition: all .15s;
+    }
+    .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+    #progress-section { display: none; margin-bottom: 20px; }
+    #progress-section.visible { display: block; }
+    .progress-steps { display: flex; gap: 0; margin-bottom: 20px; }
+    .step {
+      flex: 1; padding: 12px 8px; text-align: center; font-family: var(--mono);
+      font-size: 11px; color: var(--muted); border-bottom: 2px solid var(--border);
+      transition: all .3s;
+    }
+    .step.active { color: var(--accent); border-color: var(--accent); }
+    .step.done   { color: var(--green);  border-color: var(--green); }
+    .step-num {
+      width: 22px; height: 22px; border-radius: 50%; border: 2px solid currentColor;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; margin: 0 auto 6px; font-weight: 700; transition: all .3s;
+    }
+    .step.done .step-num { background: var(--green); border-color: var(--green); color: #000; }
+    .progress-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .progress-bar {
+      height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px; transition: width .4s ease; width: 0%;
+    }
+    .progress-log { margin-top: 12px; font-family: var(--mono); font-size: 12px; color: var(--muted); min-height: 20px; }
+
+    #results-section { display: none; }
+    #results-section.visible { display: block; }
+
+    .results-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+    }
+    .results-title { font-size: 20px; font-weight: 800; }
+
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    @media (max-width: 540px) { .stats-row { grid-template-columns: 1fr; } }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 18px;
+    }
+    .stat-label { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-value { font-size: 22px; font-weight: 800; }
+    .stat-value.positive { color: var(--green); }
+    .stat-value.negative { color: var(--accent2); }
+    .stat-value.neutral  { color: var(--yellow); }
+
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--surface); border-radius: 10px; padding: 4px; }
+    .tab {
+      flex: 1; padding: 9px; border-radius: 7px; border: none; background: transparent;
+      color: var(--muted); font-family: var(--sans); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all .2s;
+    }
+    .tab.active { background: var(--card); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .transcript-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px; font-family: var(--mono);
+      font-size: 13px; line-height: 1.8; color: var(--text);
+      max-height: 320px; overflow-y: auto;
+    }
+    .transcript-box::-webkit-scrollbar { width: 6px; }
+    .transcript-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .keywords-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    .keyword-pill {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 14px; transition: border-color .2s;
+    }
+    .keyword-pill:hover { border-color: var(--accent); }
+    .kw-text { font-family: var(--mono); font-size: 13px; }
+    .kw-bar-wrap { width: 60px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .kw-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 2px; }
+    .kw-pct { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+
+    .entity-group { margin-bottom: 18px; }
+    .entity-type-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 8px; }
+    .entity-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .entity-chip { padding: 5px 12px; border-radius: 20px; font-family: var(--mono); font-size: 12px; border: 1px solid; }
+    .type-Person       { border-color: rgba(124,106,247,.5); color: #b8aff9; background: rgba(124,106,247,.08); }
+    .type-Organization { border-color: rgba(74,222,128,.4);  color: #86efad; background: rgba(74,222,128,.07); }
+    .type-Date         { border-color: rgba(251,191,36,.4);  color: #fde68a; background: rgba(251,191,36,.07); }
+    .type-Location     { border-color: rgba(247,106,140,.4); color: #fda4af; background: rgba(247,106,140,.07); }
+    .type-Other        { border-color: var(--border); color: var(--muted); background: transparent; }
+
+    .action-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .action-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-left: 3px solid var(--accent); border-radius: 8px; padding: 14px;
+      font-family: var(--mono); font-size: 13px; line-height: 1.6;
+    }
+    .action-bullet { color: var(--accent); font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .no-actions { color: var(--muted); font-family: var(--mono); font-size: 13px; padding: 20px; text-align: center; }
+
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal {
+      background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+      padding: 32px; width: 100%; max-width: 480px; margin: 16px;
+    }
+    .modal h3 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+    .modal p  { font-size: 13px; color: var(--muted); margin-bottom: 20px; font-family: var(--mono); }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .btn-cancel {
+      flex: 1; padding: 11px; border-radius: 8px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted); font-family: var(--sans);
+      font-weight: 600; font-size: 14px; cursor: pointer;
+    }
+    .btn-send {
+      flex: 2; padding: 11px; border-radius: 8px; border: none;
+      background: linear-gradient(135deg, var(--accent), #9b59d6);
+      color: #fff; font-family: var(--sans); font-weight: 700; font-size: 14px; cursor: pointer;
+    }
+
+    .toast {
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 20px; font-family: var(--mono); font-size: 13px;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+      transition: transform .35s cubic-bezier(.34,1.56,.64,1); z-index: 200;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up   { animation: fadeUp .4s ease both; }
+    .fade-up-2 { animation: fadeUp .4s .1s ease both; }
+    .fade-up-3 { animation: fadeUp .4s .2s ease both; }
+  </style>
+</head>
+<body>
+  <div class="glow glow-1"></div>
+  <div class="glow glow-2"></div>
+
+  <div class="wrapper">
+
+    <header>
+      <div class="logo">
+        <div class="logo-icon">🎙</div>
+        <div class="logo-text">Meet<span>Mind</span></div>
+      </div>
+      <div class="badge">IBM Watson Powered</div>
+    </header>
+
+    <!-- Upload card -->
+    <div class="card fade-up" style="margin-bottom:20px;">
+      <div class="section-label">① Upload Audio & Run</div>
+
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="audioFile" accept=".wav,.flac,.mp3,.ogg" />
+        <span class="drop-icon">📂</span>
+        <div class="drop-title">Drop your meeting audio here</div>
+        <div class="drop-sub">WAV · FLAC · MP3 · OGG — mono 16kHz recommended</div>
+      </div>
+
+      <div class="file-chosen" id="fileChosen">
+        <span>🎵</span>
+        <span class="fname" id="fileName">—</span>
+        <span class="fsize" id="fileSize">—</span>
+        <button class="btn-sm" onclick="clearFile()">✕</button>
+      </div>
+
+      <button class="btn-primary" id="runBtn" onclick="runPipeline()" disabled>
+        ✦ Summarize Meeting
+      </button>
+    </div>
+
+    <!-- Progress -->
+    <div id="progress-section" class="card fade-up-3">
+      <div class="progress-steps">
+        <div class="step" id="step-0"><div class="step-num">1</div>Transcribe</div>
+        <div class="step" id="step-1"><div class="step-num">2</div>Analyze</div>
+        <div class="step" id="step-2"><div class="step-num">3</div>Format</div>
+        <div class="step" id="step-3"><div class="step-num">✓</div>Done</div>
+      </div>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="progress-log" id="progressLog">Initializing…</div>
+    </div>
+
+    <!-- Results -->
+    <div id="results-section">
+      <div class="results-header">
+        <div class="results-title">📋 Meeting Summary</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-sm" onclick="downloadTxt()">⬇ Download .txt</button>
+          <button class="btn-sm" onclick="openEmailModal()">✉ Email Summary</button>
+          <button class="btn-sm" onclick="resetAll()">↺ New Meeting</button>
+        </div>
+      </div>
+
+      <div class="stats-row" id="statsRow"></div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('transcript',this)">Transcript</button>
+        <button class="tab" onclick="showTab('keywords',this)">Keywords</button>
+        <button class="tab" onclick="showTab('entities',this)">Entities</button>
+        <button class="tab" onclick="showTab('actions',this)">Action Items</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-transcript">
+        <div class="transcript-box" id="transcriptBox"></div>
+      </div>
+      <div class="tab-panel" id="tab-keywords">
+        <div class="keywords-grid" id="keywordsGrid"></div>
+      </div>
+      <div class="tab-panel" id="tab-entities">
+        <div id="entitiesDiv"></div>
+      </div>
+      <div class="tab-panel" id="tab-actions">
+        <ul class="action-list" id="actionsList"></ul>
+      </div>
+    </div>
+
+  </div><!-- /wrapper -->
+
+  <!-- Email modal -->
+  <div class="modal-overlay" id="emailModal">
+    <div class="modal">
+      <h3>✉ Email Summary</h3>
+      <p>Enter recipient emails below. Sent via your .env email settings.</p>
+      <div class="field" style="margin-bottom:14px;">
+        <label>RECIPIENTS (comma-separated)</label>
+        <input type="text" id="emailTo" placeholder="alice@example.com, bob@example.com" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeEmailModal()">Cancel</button>
+        <button class="btn-send" onclick="sendEmail()">Send Email</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <span id="toastIcon">✓</span>
+    <span id="toastMsg">Done!</span>
+  </div>
+
+  <script>
+    let currentSummary = null;
+    let selectedFile   = null;
+
+    const dropzone  = document.getElementById('dropzone');
+    const fileInput = document.getElementById('audioFile');
+
+    dropzone.addEventListener('dragover',  e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+    dropzone.addEventListener('dragleave', ()  => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault(); dropzone.classList.remove('drag-over');
+      const f = e.dataTransfer.files[0];
+      if (f) setFile(f);
+    });
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+
+    function setFile(f) {
+      selectedFile = f;
+      document.getElementById('fileName').textContent = f.name;
+      document.getElementById('fileSize').textContent = formatBytes(f.size);
+      document.getElementById('fileChosen').classList.add('visible');
+      document.getElementById('runBtn').disabled = false;
+    }
+
+    function clearFile() {
+      selectedFile = null;
+      fileInput.value = '';
+      document.getElementById('fileChosen').classList.remove('visible');
+      document.getElementById('runBtn').disabled = true;
+    }
+
+    function formatBytes(b) {
+      if (b < 1024) return b + ' B';
+      if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+      return (b / 1048576).toFixed(1) + ' MB';
+    }
+
+    async function runPipeline() {
+      if (!selectedFile) { showToast('⚠ No audio file selected', true); return; }
+
+      document.getElementById('runBtn').disabled = true;
+      document.getElementById('results-section').classList.remove('visible');
+      showProgress(true);
+      setProgress(0, 'Uploading audio to server…');
+
+      try {
+        activateStep(0);
+        setProgress(15, 'Transcribing with IBM Watson STT…');
+
+        const formData = new FormData();
+        formData.append('audio', selectedFile);
+
+        const resp = await fetch('/summarize', { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (!resp.ok || data.error) throw new Error(data.error || 'Server error');
+
+        doneStep(0);
+        activateStep(1);
+        setProgress(50, 'Analyzing with IBM Watson NLU…');
+        await sleep(300);
+
+        doneStep(1);
+        activateStep(2);
+        setProgress(80, 'Building summary report…');
+        await sleep(300);
+
+        currentSummary = { transcript: data.transcript, insights: data.insights, formatted: data.summary_text };
+
+        doneStep(2);
+        activateStep(3);
+        doneStep(3);
+        setProgress(100, '✓ Summary ready!');
+        await sleep(500);
+
+        showProgress(false);
+        renderResults(data.transcript, data.insights, data.action_items);
+        document.getElementById('results-section').classList.add('visible');
+        document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+
+      } catch (err) {
+        setProgress(0, '✗ Error: ' + err.message);
+        showToast('✗ ' + err.message, true);
+        document.getElementById('runBtn').disabled = false;
+      }
+    }
+
+    function renderResults(transcript, insights, actionItemsFromServer) {
+      const sentiment = insights.sentiment?.document || {};
+      const label     = sentiment.label || 'neutral';
+      const wordCount = transcript.split(/\s+/).length;
+      const kwCount   = (insights.keywords || []).length;
+      const cls       = label === 'positive' ? 'positive' : label === 'negative' ? 'negative' : 'neutral';
+
+      document.getElementById('statsRow').innerHTML = `
+        <div class="stat-card"><div class="stat-label">Word Count</div><div class="stat-value">${wordCount.toLocaleString()}</div></div>
+        <div class="stat-card"><div class="stat-label">Sentiment</div><div class="stat-value ${cls}">${label.charAt(0).toUpperCase()+label.slice(1)}</div></div>
+        <div class="stat-card"><div class="stat-label">Keywords Found</div><div class="stat-value">${kwCount}</div></div>
+      `;
+
+      document.getElementById('transcriptBox').textContent = transcript;
+
+      const kgEl = document.getElementById('keywordsGrid');
+      kgEl.innerHTML = '';
+      (insights.keywords || []).forEach(kw => {
+        const pct = Math.round((kw.relevance || 0) * 100);
+        kgEl.innerHTML += `
+          <div class="keyword-pill">
+            <span class="kw-text">${escHtml(kw.text)}</span>
+            <div class="kw-bar-wrap"><div class="kw-bar" style="width:${pct}%"></div></div>
+            <span class="kw-pct">${pct}%</span>
+          </div>`;
+      });
+
+      const eDiv = document.getElementById('entitiesDiv');
+      eDiv.innerHTML = '';
+      const groups = {};
+      (insights.entities || []).forEach(e => { (groups[e.type] = groups[e.type] || []).push(e.text); });
+      if (!Object.keys(groups).length) {
+        eDiv.innerHTML = '<div class="no-actions">No entities detected.</div>';
+      } else {
+        Object.entries(groups).forEach(([type, names]) => {
+          const uniq  = [...new Set(names)];
+          const chips = uniq.map(n => `<span class="entity-chip type-${type}">${escHtml(n)}</span>`).join('');
+          eDiv.innerHTML += `<div class="entity-group"><div class="entity-type-label">${type}</div><div class="entity-chips">${chips}</div></div>`;
+        });
+      }
+
+      const actions = actionItemsFromServer || [];
+      const alEl    = document.getElementById('actionsList');
+      alEl.innerHTML = '';
+      if (!actions.length) {
+        alEl.innerHTML = '<div class="no-actions">No explicit action items detected.</div>';
+      } else {
+        actions.forEach(a => {
+          alEl.innerHTML += `<li class="action-item"><span class="action-bullet">→</span>${escHtml(a.trim())}</li>`;
+        });
+      }
+    }
+
+    function downloadTxt() {
+      if (!currentSummary) return;
+      const blob = new Blob([currentSummary.formatted], { type: 'text/plain' });
+      const a    = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(blob),
+        download: `meeting_summary_${Date.now()}.txt`
+      });
+      a.click();
+      showToast('✓ Downloaded!');
+    }
+
+    function openEmailModal()  { document.getElementById('emailModal').classList.add('visible'); }
+    function closeEmailModal() { document.getElementById('emailModal').classList.remove('visible'); }
+
+    async function sendEmail() {
+      const to = document.getElementById('emailTo').value.trim();
+      if (!to) { showToast('⚠ Enter at least one recipient', true); return; }
+      if (!currentSummary) { showToast('⚠ No summary to send', true); return; }
+
+      try {
+        const formData = new FormData();
+        formData.append('audio', selectedFile);
+        formData.append('emails', to);
+        const resp = await fetch('/summarize', { method: 'POST', body: formData });
+        const data = await resp.json();
+        showToast(data.email_status?.startsWith('sent') ? '✉ Email sent!' : '⚠ ' + (data.email_status || 'Email failed'), !data.email_status?.startsWith('sent'));
+      } catch (e) {
+        showToast('✗ Email error: ' + e.message, true);
+      }
+      closeEmailModal();
+    }
+
+    function showProgress(v) {
+      document.getElementById('progress-section').classList.toggle('visible', v);
+      if (v) { [0,1,2,3].forEach(i => { const s = document.getElementById(`step-${i}`); s.className = 'step'; s.querySelector('.step-num').textContent = i < 3 ? i + 1 : '✓'; }); }
+    }
+    function setProgress(pct, msg) {
+      document.getElementById('progressBar').style.width = pct + '%';
+      document.getElementById('progressLog').textContent = msg;
+    }
+    function activateStep(i) { document.getElementById(`step-${i}`).classList.add('active'); }
+    function doneStep(i) { const s = document.getElementById(`step-${i}`); s.classList.remove('active'); s.classList.add('done'); }
+
+    function showTab(id, btn) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + id).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    function resetAll() {
+      currentSummary = null;
+      clearFile();
+      document.getElementById('results-section').classList.remove('visible');
+      showProgress(false);
+      document.getElementById('runBtn').disabled = true;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    let toastTimer;
+    function showToast(msg, isError = false) {
+      const t = document.getElementById('toast');
+      document.getElementById('toastMsg').textContent = msg;
+      t.style.borderColor = isError ? 'rgba(247,106,140,.5)' : 'var(--border)';
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function sleep(ms)  { return new Promise(r => setTimeout(r, ms)); }
+  </script>
+</body>
+</html>

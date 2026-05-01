@@ -1,0 +1,11 @@
+# This tells Netlify how to serve the frontend.
+# Since it's just one HTML file, there's nothing to build.
+
+[build]
+  publish = "."
+
+# Redirect all 404s back to index.html (good practice)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
