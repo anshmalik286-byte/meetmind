@@ -1,6 +1,4 @@
-flask==2.3.3
+ flask==2.3.3
 flask-cors==4.0.0
-ibm-watson==7.0.1
-ibm-cloud-sdk-core==3.18.0
+requests==2.31.0
 python-dotenv==1.0.0
-setuptools==67.6.0
