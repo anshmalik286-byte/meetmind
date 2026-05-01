@@ -262,5 +262,6 @@ def api_send_email():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=False)
     print(f"Starting MeetMind on http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=False)
